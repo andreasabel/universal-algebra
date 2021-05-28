@@ -128,40 +128,9 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
     pattern var' x f     = sup (inj₁ x , f    )
     pattern var x        = var' x _
 
-    module Interpretation (M : SetoidModel ℓᵐ ℓᵉ) where
-      open SetoidModel M
-
-      Env : Setoid _ _
-      Env .Carrier   = {s : Sort} (x : Var s) → Den s .Carrier
-      Env ._≈_ ρ ρ'  = {s : Sort} (x : Var s) → Den s ._≈_ (ρ x) (ρ' x)
-      Env .isEquivalence .IsEquivalence.refl  {s = s}  x = Den s .Setoid.refl
-      Env .isEquivalence .IsEquivalence.sym     h {s}  x = Den s .Setoid.sym   (h x)
-      Env .isEquivalence .IsEquivalence.trans g h {s}  x = Den s .Setoid.trans (g x) (h x)
-
-      -- Interpretation of terms is iteration on the W-type.
-      -- The standard library offers `iter` (on sets), but we need this to be a Func (on setoids).
-
-      ⦅_⦆ : ∀{s} (t : Tm s) → Func Env (Den s)
-      ⦅ var x      ⦆ .apply  ρ     = ρ x
-      ⦅ var x      ⦆ .cong   ρ=ρ'  = ρ=ρ' x
-      ⦅ op ∙ args  ⦆ .apply  ρ     = den .apply  (op    , λ i → ⦅ args i ⦆ .apply ρ)
-      ⦅ op ∙ args  ⦆ .cong   ρ=ρ'  = den .cong   (refl  , λ i → ⦅ args i ⦆ .cong ρ=ρ')
-
-      -- An equality between two terms holds in a model
-      -- if the two terms are equal under all valuations of their free variables.
-
-      Equal : ∀{s} (t t' : Tm s) → Set _
-      Equal {s} t t' = ∀ (ρ : Env .Carrier) → ⦅ t ⦆ .apply ρ ~ ⦅ t' ⦆ .apply ρ
-        where _~_ = Den s ._≈_
-
-      -- This notion is an equivalence relation.
-
-      isEquiv : IsEquivalence (Equal {s})
-      isEquiv {s = s} .IsEquivalence.refl  ρ       = Den s .Setoid.refl
-      isEquiv {s = s} .IsEquivalence.sym   e ρ     = Den s .Setoid.sym (e ρ)
-      isEquiv {s = s} .IsEquivalence.trans e e' ρ  = Den s .Setoid.trans (e ρ) (e' ρ)
-
-  open Interpretation using (Equal; isEquiv)
+  variable
+    t t' t₁ t₂ t₃  :  Tm Γ s
+    ts ts'         :  (i : Arity op) → Tm Γ (sort _ i)
 
   -- Parallel substitutions
   -------------------------
@@ -169,31 +138,59 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
   Sub : (Γ Δ : Cxt) → Set _
   Sub Γ Δ = ∀{s} (x : Δ s) → Tm Γ s
 
-  variable
-    t t' t₁ t₂ t₃  :  Tm Γ s
-    ts ts'         :  (i : Arity op) → Tm Γ (sort _ i)
-    σ σ'           :  Sub Γ Δ
-
   -- Definition of substitution.
 
   _[_] : (t : Tm Δ s) (σ : Sub Γ Δ) → Tm Γ s
   (var x  )  [ σ ] = σ x
   (op ∙ ts)  [ σ ] = op ∙ λ i → ts i [ σ ]
 
-  -- Substitution lemma
-  ---------------------
+  variable
+    σ σ' : Sub Γ Δ
+
+  -- Interpretation of terms in a model
+  -- ==================================
 
   module _ {M : SetoidModel ℓᵐ ℓᵉ} where
     open SetoidModel M
 
-    -- The setoid of environments for context Γ
+    -- Equality in M's interpretation of sort s.
 
-    Env = λ Γ → Interpretation.Env Γ M
+    _≃_ : Den s .Carrier → Den s .Carrier → Set _
+    _≃_ {s = s} = Den s ._≈_
 
-    -- The interpretation function for terms in context Γ
+    -- Enviroments.
 
-    ⦅_⦆ : Tm Γ s → Func (Env Γ) (Den s)
-    ⦅_⦆ {Γ = Γ} = Interpretation.⦅_⦆ Γ M
+    Env : Cxt → Setoid _ _
+    Env Γ .Carrier   = {s : Sort} (x : Γ s) → Den s .Carrier
+    Env Γ ._≈_ ρ ρ'  = {s : Sort} (x : Γ s) → ρ x ≃ ρ' x
+    Env Γ .isEquivalence .IsEquivalence.refl  {s = s}  x = Den s .Setoid.refl
+    Env Γ .isEquivalence .IsEquivalence.sym     h {s}  x = Den s .Setoid.sym   (h x)
+    Env Γ .isEquivalence .IsEquivalence.trans g h {s}  x = Den s .Setoid.trans (g x) (h x)
+
+    -- Interpretation of terms is iteration on the W-type.
+    -- The standard library offers `iter` (on sets), but we need this to be a Func (on setoids).
+
+    ⦅_⦆ : ∀{s} (t : Tm Γ s) → Func (Env Γ) (Den s)
+    ⦅ var x      ⦆ .apply  ρ     = ρ x
+    ⦅ var x      ⦆ .cong   ρ=ρ'  = ρ=ρ' x
+    ⦅ op ∙ args  ⦆ .apply  ρ     = den .apply  (op    , λ i → ⦅ args i ⦆ .apply ρ)
+    ⦅ op ∙ args  ⦆ .cong   ρ=ρ'  = den .cong   (refl  , λ i → ⦅ args i ⦆ .cong ρ=ρ')
+
+    -- An equality between two terms holds in a model
+    -- if the two terms are equal under all valuations of their free variables.
+
+    Equal : ∀ {Γ s} (t t' : Tm Γ s) → Set _
+    Equal {Γ} {s} t t' = ∀ (ρ : Env Γ .Carrier) → ⦅ t ⦆ .apply ρ ≃ ⦅ t' ⦆ .apply ρ
+
+    -- This notion is an equivalence relation.
+
+    isEquiv : IsEquivalence (Equal {Γ = Γ} {s = s})
+    isEquiv {s = s} .IsEquivalence.refl  ρ       = Den s .Setoid.refl
+    isEquiv {s = s} .IsEquivalence.sym   e ρ     = Den s .Setoid.sym (e ρ)
+    isEquiv {s = s} .IsEquivalence.trans e e' ρ  = Den s .Setoid.trans (e ρ) (e' ρ)
+
+    -- Substitution lemma
+    ---------------------
 
     -- The interpretation of substitutions.
     -- Evaluation of a substitution gives an environment.
@@ -201,14 +198,9 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
     ⦅_⦆s : Sub Γ Δ → Env Γ .Carrier → Env Δ .Carrier
     ⦅ σ ⦆s ρ x = ⦅ σ x ⦆ .apply ρ
 
-    -- Equality in M's interpretation of sort s.
-
-    _≃_ : Den s .Carrier → Den s .Carrier → Set _
-    _≃_ {s = s} = Den s ._≈_
-
     -- Substitution lemma: ⦅t[σ]⦆ρ ≃ ⦅t⦆⦅σ⦆ρ
 
-    substitution : (t : Tm Δ s) (σ : Sub Γ Δ) (ρ : Interpretation.Env Γ M .Carrier) →
+    substitution : (t : Tm Δ s) (σ : Sub Γ Δ) (ρ : Env Γ .Carrier) →
       ⦅ t [ σ ] ⦆ .apply ρ ≃ ⦅ t ⦆ .apply (⦅ σ ⦆s ρ)
     substitution (var x)    σ ρ = Den _ .Setoid.refl
     substitution (op ∙ ts)  σ ρ = den .cong (refl , λ i → substitution (ts i) σ ρ)
@@ -229,7 +221,7 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
   -- Equation t ≐ t' holding in model M.
 
   _⊧_ : (M : SetoidModel ℓᵐ ℓᵉ) (eq : Eq) → Set _
-  M ⊧ (t ≐ t') = Equal _ M t t'
+  M ⊧ (t ≐ t') = Equal {M = M} t t'
 
   -- Sets of equations are presented as collection E : I → Eq
   -- for some index set I : Set ℓⁱ.
@@ -295,12 +287,12 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
       open SetoidReasoning (Den _)
       ρ' = ⦅ σ ⦆s ρ
 
-    sound (base x {f} {f'})                           =  isEquiv _ M .IsEquivalence.refl {var' x λ()}
+    sound (base x {f} {f'})                           =  isEquiv {M = M} .IsEquivalence.refl {var' x λ()}
 
-    sound (refl t)                                    =  isEquiv _ M .IsEquivalence.refl {t}
-    sound (sym {t = t} {t' = t'} e)                   =  isEquiv _ M .IsEquivalence.sym
+    sound (refl t)                                    =  isEquiv {M = M} .IsEquivalence.refl {t}
+    sound (sym {t = t} {t' = t'} e)                   =  isEquiv {M = M} .IsEquivalence.sym
                                                          {x = t} {y = t'} (sound e)
-    sound (trans {t₁ = t₁} {t₂ = t₂} {t₃ = t₃} e e')  =  isEquiv _ M .IsEquivalence.trans
+    sound (trans {t₁ = t₁} {t₂ = t₂} {t₃ = t₃} e e')  =  isEquiv {M = M} .IsEquivalence.trans
                                                          {i = t₁} {j = t₂} {k = t₃} (sound e) (sound e')
 
   -- Birkhoff's completeness theorem

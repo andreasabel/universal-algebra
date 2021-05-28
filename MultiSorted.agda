@@ -38,6 +38,7 @@ variable
   I O S : Set ℓ
 
 -- Interpreting indexed containers on Setoids
+-- This should go to the standard library...
 
 ⟦_⟧s : (C : Container I S ℓc ℓr) (ξ : I → Setoid ℓs ℓe) → S → Setoid _ _
 
@@ -52,8 +53,8 @@ variable
          → Set _
   EqArgs refl args args' = (i : Ar op) → ξ (sort _ i) ._≈_ (args i) (args' i)
 
-⟦ Op ◃ Ar / sort ⟧s ξ s .isEquivalence .IsEquivalence.refl                        = refl , λ i → Setoid.refl (ξ (sort _ i))
-⟦ Op ◃ Ar / sort ⟧s ξ s .isEquivalence .IsEquivalence.sym   (refl , h)            = refl , λ i → Setoid.sym  (ξ (sort _ i)) (h i)
+⟦ Op ◃ Ar / sort ⟧s ξ s .isEquivalence .IsEquivalence.refl                        = refl , λ i → Setoid.refl  (ξ (sort _ i))
+⟦ Op ◃ Ar / sort ⟧s ξ s .isEquivalence .IsEquivalence.sym   (refl , h)            = refl , λ i → Setoid.sym   (ξ (sort _ i)) (h i)
 ⟦ Op ◃ Ar / sort ⟧s ξ s .isEquivalence .IsEquivalence.trans (refl , g) (refl , h) = refl , λ i → Setoid.trans (ξ (sort _ i)) (g i) (h i)
 
 -- A multi-sorted algebra is an indexed container.
@@ -89,15 +90,13 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
   record SetoidModel ℓm ℓe : Set (ℓs ⊔ ℓc ⊔ ℓr ⊔ suc (ℓm ⊔ ℓe)) where
     field
       Den : Sort → Setoid ℓm ℓe
-
-    -- ⟪_⟫ : Sort → Set ℓm
-    -- ⟪ s ⟫ = Den s .Carrier
-
-    field
       den : {s : Sort} → Func (⟦ C ⟧s Den s) (Den s)
 
 
 -- Open terms
+
+---------------------------------------------------------------------------
+-- BRACKET BEGIN
 
   module Terms where
 
@@ -158,6 +157,9 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
         step : ⟦ C⁺ ⟧ ⟪_⟫ s' → ⟪ s' ⟫
         step (inj₁ x , _)    = ρ x
         step (inj₂ o , args) = den (o , args)
+
+-- BRACKET END
+---------------------------------------------------------------------------
 
   -- This is also covered in the standard library FreeMonad module,
   -- albeit with the restriction that the operator and variable sets
@@ -262,6 +264,8 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
     substitution (var x)   σ ρ = Den _ .Setoid.refl
     substitution (op ∙ ts) σ ρ = den .cong (refl , λ i → substitution (ts i) σ ρ)
 
+  -- An equation is a pair of terms of the same sort in the same context.
+
   record Eq : Set (ℓs ⊔ suc ℓc ⊔ ℓr) where
     constructor _≐_
     field
@@ -269,6 +273,8 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
       {srt} : Sort
       lhs   : Tm cxt srt
       rhs   : Tm cxt srt
+
+  -- Equation t ≐ t' holds in model M
 
   _⊧_ : (M : SetoidModel ℓm ℓe) (eq : Eq) → Set _
   M ⊧ (t ≐ t') = Equal _ M t t'
@@ -348,39 +354,40 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
     identity (var x)   = base x
     identity (op ∙ ts) = app λ i → identity (ts i)
 
-    identity′ : (t : Tm Γ s) → E ⊢ Γ ▹ (⦅_⦆ {M = M Γ} t .apply σ₀) ≡ t
-    identity′ (var x)   = base x
-    identity′ (op ∙ ts) = app λ i → identity′ (ts i)
+    -- Evaluation is substitution E ⊢ Γ ▹ ⦅t⦆σ ≡ t[σ]
 
-    -- This property has problems because the TmSetoid is defined for a fixed Γ
-    -- -- evaluation : (t : Tm Δ s) (σ : Sub Γ Δ) → E ⊢ Γ ▹ (⦅ t ⦆ .apply σ) ≡ (t [ σ ])
-    -- evaluation : (t : Tm Δ s) (σ : Sub Γ Δ) → E ⊢ Γ ▹ (⦅_⦆ {M = M Δ} t .apply σ) ≡ (t [ σ ])
-    -- evaluation (var x)   σ = refl (σ x)
-    -- evaluation (op ∙ ts) σ = app (λ i → evaluation (ts i) σ)
+    evaluation : (t : Tm Δ s) (σ : Sub Γ Δ) → E ⊢ Γ ▹ (⦅_⦆ {M = M Γ} t .apply σ) ≡ (t [ σ ])
+    evaluation (var x)   σ = refl (σ x)
+    evaluation (op ∙ ts) σ = app (λ i → evaluation (ts i) σ)
 
+    -- The term model satisfies all the equations it started out with.
 
-  -- If
+    satisfies : ∀ i → M Γ ⊧ E i
+    satisfies i σ = begin
+      ⦅ tₗ ⦆ .apply σ  ≈⟨ evaluation tₗ σ ⟩
+      tₗ [ σ ]         ≈⟨ sub (hyp i) σ ⟩
+      tᵣ [ σ ]        ≈˘⟨ evaluation tᵣ σ ⟩
+      ⦅ tᵣ ⦆ .apply σ ∎
+      where
+      open SetoidReasoning (TmSetoid _ _)
+      tₗ  = E i .Eq.lhs
+      tᵣ = E i .Eq.rhs
+
+  -- Birkhoff's completeness theorem (1935):
+  -- Any valid consequence is derivable in the equational theory.
 
   module Completeness {I : Set ℓ} (E : I → Eq) {Γ s} {t t' : Tm Γ s} where
     open TermModel E
 
     completeness : E ⊃ (t ≐ t') → E ⊢ Γ ▹ t ≡ t'
     completeness V = begin
-      t                ≈˘⟨ identity′ t ⟩
-      ⦅ t  ⦆ .apply σ₀  ≈⟨  V (M Γ) (λ i → {!hyp i!}) σ₀   ⟩
-      ⦅ t' ⦆ .apply σ₀  ≈⟨ identity′ t' ⟩
+      t                 ≈˘⟨ identity t ⟩
+      t  [ σ₀ ]         ≈˘⟨ evaluation t σ₀ ⟩
+      ⦅ t  ⦆ .apply σ₀  ≈⟨ V (M Γ) satisfies σ₀ ⟩
+      ⦅ t' ⦆ .apply σ₀  ≈⟨ evaluation t' σ₀ ⟩
+      t' [ σ₀ ]         ≈⟨ identity t' ⟩
       t' ∎
       where open SetoidReasoning (TmSetoid Γ s)
-
-    -- completeness : Valid (ℓs ⊔ ℓc ⊔ ℓr) ((ℓs ⊔ suc ℓc ⊔ ℓr ⊔ ℓ)) (t ≐ t') → E ⊢ Γ ▹ t ≡ t'
-    -- completeness V = begin
-    --   t              ≈˘⟨ identity t ⟩
-    --   t  [ σ₀ ]       ≈⟨ {! V (M Γ) σ₀ !} ⟩
-    --   ⦅ t  ⦆ .apply σ₀ ≈⟨  V (M Γ) σ₀  ⟩
-    --   ⦅ t' ⦆ .apply σ₀ ≈⟨ {! V (M Γ) σ₀ !} ⟩
-    --   t' [ σ₀ ]       ≈⟨ identity t' ⟩
-    --   t' ∎
-    --   where open SetoidReasoning (TmSetoid Γ s)
 
 -- -}
 -- -}

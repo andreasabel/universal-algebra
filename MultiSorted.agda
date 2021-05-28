@@ -65,10 +65,10 @@ variable
 --
 -- Closed terms (initial model) are given by the W type for a container.
 
--- Models
+-- We assume a fixed signature (Sort, Ops).
 
-module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
-  open Container C renaming
+module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
+  open Container Ops renaming
     ( Command  to Op
     ; Response to Arity
     ; next     to sort
@@ -78,19 +78,22 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
     s s'   : Sort
     op op' : Op s
 
+  -- Models
+
   -- A model is given by an interpretation (Den s) for each sort s
   -- plus an interpretation (den o) for each operator o.
 
   record SetModel ℓm : Set (ℓs ⊔ ℓc ⊔ ℓr ⊔ suc ℓm) where
     field
       Den : Sort → Set ℓm
-      den : {s : Sort} → ⟦ C ⟧ Den s → Den s
-      -- den : {s : Sort} (o : Op s) (args : (i : Arity o) → Den (sort o i)) → Den s
+      den : {s : Sort} → ⟦ Ops ⟧ Den s → Den s
+
+  -- The setoid model requires operators to respect equality.
 
   record SetoidModel ℓm ℓe : Set (ℓs ⊔ ℓc ⊔ ℓr ⊔ suc (ℓm ⊔ ℓe)) where
     field
       Den : Sort → Setoid ℓm ℓe
-      den : {s : Sort} → Func (⟦ C ⟧s Den s) (Den s)
+      den : {s : Sort} → Func (⟦ Ops ⟧s Den s) (Den s)
 
 
 -- Open terms
@@ -174,12 +177,12 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
 
     -- We keep the same sorts, but add a nullary operator for each variable
 
-    C⁺ : Container Sort Sort ℓc ℓr
-    C⁺ = C ⋆C Var
+    Ops⁺ : Container Sort Sort ℓc ℓr
+    Ops⁺ = Ops ⋆C Var
 
     -- Terms are then given by the W-type for the extended container.
 
-    Tm = W C⁺
+    Tm = W Ops⁺
 
     pattern _∙_ op args = W.sup (inj₂ op , args)
     pattern var' x f    = W.sup (inj₁ x , f    )
@@ -198,7 +201,8 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
       Env .isEquivalence .IsEquivalence.sym     h {s} x = Den s .Setoid.sym   (h x)
       Env .isEquivalence .IsEquivalence.trans g h {s} x = Den s .Setoid.trans (g x) (h x)
 
-      -- Interpretation of terms is iteration on the W-type
+      -- Interpretation of terms is iteration on the W-type.
+      -- The standard library offers `iter`, but we need this to be a Func.
 
       ⦅_⦆ : ∀{s} (t : Tm s) → Func Env (Den s)
       ⦅ var x     ⦆ .apply ρ    = ρ x
@@ -215,21 +219,24 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
 
       -- TODO: make iter a Func in the standard library
 
+      -- An equality between two terms holds in a model
+      -- if the two terms are equal under all valuations of their free variables.
+
       Equal : ∀{s} (t t' : Tm s) → Set _
       Equal {s} t t' = ∀ (ρ : Env .Carrier) → ⦅ t ⦆ .apply ρ ~ ⦅ t' ⦆ .apply ρ
         where _~_ = Den s ._≈_
+
+      -- This notion is an equivalence relation.
 
       isEquiv : IsEquivalence (Equal {s})
       isEquiv {s = s} .IsEquivalence.refl  ρ      = Den s .Setoid.refl
       isEquiv {s = s} .IsEquivalence.sym   e ρ    = Den s .Setoid.sym (e ρ)
       isEquiv {s = s} .IsEquivalence.trans e e' ρ = Den s .Setoid.trans (e ρ) (e' ρ)
 
-    -- Equal terms in a model
-
-    -- _⊧_≐_ = Interpretation.Equal
-
   open NewSymbols' using (Tm; var; var'; _∙_; module Interpretation)
   open Interpretation using (Equal; isEquiv)
+
+  -- Parallel substitutions
 
   Sub : (Γ Δ : Cxt) → Set _
   Sub Γ Δ = ∀{s} (x : Δ s) → Tm Γ s
@@ -239,7 +246,7 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
     ts ts' : (i : Arity op) → Tm Γ (sort _ i)
     σ σ' : Sub Γ Δ
 
-  -- Substitution
+  -- Definition of substitution.
 
   _[_] : (t : Tm Δ s) (σ : Sub Γ Δ) → Tm Γ s
   (var x  ) [ σ ] = σ x
@@ -250,14 +257,27 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
   module _ {M : SetoidModel ℓm ℓe} where
     open SetoidModel M
 
-    ⦅_⦆ : ∀{Γ s} → Tm Γ s → Func (Interpretation.Env Γ M) (Den s)
-    ⦅_⦆ {Γ} = Interpretation.⦅_⦆ Γ M
+    -- The setoid of environments for context Γ
 
-    ⦅_⦆s : Sub Γ Δ → Interpretation.Env Γ M .Carrier → Interpretation.Env Δ M .Carrier
+    Env = λ Γ → Interpretation.Env Γ M
+
+    -- The interpretation function for terms in context Γ
+
+    ⦅_⦆ : Tm Γ s → Func (Env Γ) (Den s)
+    ⦅_⦆ {Γ = Γ} = Interpretation.⦅_⦆ Γ M
+
+    -- The interpretation of substitutions.
+    -- Evaluation of a substitution gives an environment.
+
+    ⦅_⦆s : Sub Γ Δ → Env Γ .Carrier → Env Δ .Carrier
     ⦅ σ ⦆s ρ x = ⦅ σ x ⦆ .apply ρ
+
+    -- Equality in M's interpretation of sort s.
 
     _~_ : Den s .Carrier → Den s .Carrier → Set _
     _~_ {s = s} = Den s ._≈_
+
+    -- Substitution lemma: ⦅t[σ]⦆ρ ~ ⦅t⦆⦅σ⦆ρ
 
     substitution : (t : Tm Δ s) (σ : Sub Γ Δ) (ρ : Interpretation.Env Γ M .Carrier) →
       ⦅ t [ σ ] ⦆ .apply ρ ~ ⦅ t ⦆ .apply (⦅ σ ⦆s ρ)
@@ -279,13 +299,9 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
   _⊧_ : (M : SetoidModel ℓm ℓe) (eq : Eq) → Set _
   M ⊧ (t ≐ t') = Equal _ M t t'
 
+  -- Entailment/consequence E ⊃ t ≐ t' when t ≐ t' holds in all models that satify equations E.
+
   module _ {ℓm ℓe} where
-
-    Valid : Eq → Set _
-    Valid eq = ∀ (M : SetoidModel ℓm ℓe) → M ⊧ eq
-
-    Valids : {I : Set ℓ} (E : I → Eq) → Set _
-    Valids E = ∀ i → Valid (E i)
 
     _⊃_ : {I : Set ℓ} (E : I → Eq) (eq : Eq) → Set _
     E ⊃ eq = ∀ (M : SetoidModel ℓm ℓe) → (∀ i → M ⊧ E i) → M ⊧ eq
@@ -303,8 +319,12 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
     sym   : (e : E ⊢ Γ ▹ t ≡ t') → E ⊢ Γ ▹ t' ≡ t
     trans : (e : E ⊢ Γ ▹ t₁ ≡ t₂) (e' : E ⊢ Γ ▹ t₂ ≡ t₃) → E ⊢ Γ ▹ t₁ ≡ t₃
 
+  -- Soundness of the inference rules
+
   module Soundness {I : Set ℓ} (E : I → Eq) (M : SetoidModel ℓm ℓe) (V : ∀ i → M ⊧ E i) where
     open SetoidModel M
+
+    -- In any model M that satisfies the equations E, derived equality is actual equality.
 
     sound : E ⊢ Γ ▹ t ≡ t' → M ⊧ (t ≐ t')
 
@@ -325,10 +345,12 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
     sound (sym {t = t} {t' = t'} e)                  = isEquiv _ M .IsEquivalence.sym {x = t} {y = t'} (sound e)
     sound (trans {t₁ = t₁} {t₂ = t₂} {t₃ = t₃} e e') = isEquiv _ M .IsEquivalence.trans {i = t₁} {j = t₂} {k = t₃} (sound e) (sound e')
 
-  -- data _⊢_∋_≡_ : (Γ Δ : Cxt) (σ σ' : Sub Γ Δ) → Set _ where
+  -- A term model for E and Γ interprets sort s by Tm Γ s quotiented by E⊢Γ▹_≡_.
 
   module TermModel {I : Set ℓ} (E : I → Eq) where
     open SetoidModel
+
+    -- Tm Γ s quotiented by E⊢Γ▹_≡_
 
     TmSetoid : Cxt → Sort → Setoid _ _
     TmSetoid Γ s .Carrier = Tm Γ s
@@ -337,24 +359,32 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
     TmSetoid Γ s .isEquivalence .IsEquivalence.sym  = sym
     TmSetoid Γ s .isEquivalence .IsEquivalence.trans = trans
 
-    tmInterp : ∀ {Γ s} → Func (⟦ C ⟧s (TmSetoid Γ) s) (TmSetoid Γ s)
+    -- The interpretation of an operator is simply the operator.
+    -- This works because E⊢Γ▹_≡_ is a congruence.
+
+    tmInterp : ∀ {Γ s} → Func (⟦ Ops ⟧s (TmSetoid Γ) s) (TmSetoid Γ s)
     tmInterp .apply (op , ts) = op ∙ ts
     tmInterp .cong (refl , h) = app h
+
+    -- The term model per context Γ.
 
     M : Cxt → SetoidModel _ _
     M Γ .Den = TmSetoid Γ
     M Γ .den = tmInterp
 
-    -- Identity substitution
+    -- The identity substitution σ₀ maps variables to themselves.
 
     σ₀ : {Γ : Cxt} → Sub Γ Γ
-    σ₀ x = W.sup (inj₁ x , λ())
+    σ₀ x = var' x  λ()
+
+    -- σ₀ acts indeed as identity.
 
     identity : (t : Tm Γ s) → E ⊢ Γ ▹ t [ σ₀ ] ≡ t
     identity (var x)   = base x
     identity (op ∙ ts) = app λ i → identity (ts i)
 
-    -- Evaluation is substitution E ⊢ Γ ▹ ⦅t⦆σ ≡ t[σ]
+    -- Evaluation in the term model is substitution E ⊢ Γ ▹ ⦅t⦆σ ≡ t[σ].
+    -- This would even hold "up to the nose" if we had function extensionality.
 
     evaluation : (t : Tm Δ s) (σ : Sub Γ Δ) → E ⊢ Γ ▹ (⦅_⦆ {M = M Γ} t .apply σ) ≡ (t [ σ ])
     evaluation (var x)   σ = refl (σ x)
@@ -388,6 +418,8 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
       t' [ σ₀ ]         ≈⟨ identity t' ⟩
       t' ∎
       where open SetoidReasoning (TmSetoid Γ s)
+
+-- Q.E.D 2021-05-28
 
 -- -}
 -- -}

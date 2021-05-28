@@ -33,7 +33,7 @@ variable
   I : Set ℓⁱ
   S : Set ℓˢ
 
--- Interpreting indexed containers on Setoids
+-- Interpreting indexed containers on Setoids.
 -- This should go to the standard library...
 
 ⟦_⟧s : (C : Container I S ℓᵒ ℓᵃ) (ξ : I → Setoid ℓᵐ ℓᵉ) → S → Setoid _ _
@@ -203,13 +203,13 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
 
     -- Equality in M's interpretation of sort s.
 
-    _~_ : Den s .Carrier → Den s .Carrier → Set _
-    _~_ {s = s} = Den s ._≈_
+    _≃_ : Den s .Carrier → Den s .Carrier → Set _
+    _≃_ {s = s} = Den s ._≈_
 
-    -- Substitution lemma: ⦅t[σ]⦆ρ ~ ⦅t⦆⦅σ⦆ρ
+    -- Substitution lemma: ⦅t[σ]⦆ρ ≃ ⦅t⦆⦅σ⦆ρ
 
     substitution : (t : Tm Δ s) (σ : Sub Γ Δ) (ρ : Interpretation.Env Γ M .Carrier) →
-      ⦅ t [ σ ] ⦆ .apply ρ ~ ⦅ t ⦆ .apply (⦅ σ ⦆s ρ)
+      ⦅ t [ σ ] ⦆ .apply ρ ≃ ⦅ t ⦆ .apply (⦅ σ ⦆s ρ)
     substitution (var x)    σ ρ = Den _ .Setoid.refl
     substitution (op ∙ ts)  σ ρ = den .cong (refl , λ i → substitution (ts i) σ ρ)
 

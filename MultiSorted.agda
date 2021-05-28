@@ -1,106 +1,107 @@
 -- Multi-sorted algebras as indexed containers
--- 2021-05-26
+-- ===========================================
 
-{-# OPTIONS --postfix-projections #-}
-
-module _ where
+{- Created 2021-05-26 -}
 
 open import Level
-open import Size
 
-open import Data.Container.Indexed              using (Container; ⟦_⟧; μ; _◃_/_); open Container
-open import Data.Container.Indexed.FreeMonad    using (_⋆C_)
-open import Data.W.Indexed                      using (W; iter)
+open import Data.Container.Indexed                 using (Container; ⟦_⟧; μ; _◃_/_)
+open import Data.Container.Indexed.FreeMonad       using (_⋆C_)
+open import Data.W.Indexed                         using (sup)
 
-open import Data.List.Base                      using (List; []; _∷_)
-open import Data.List.Membership.Propositional  using (_∈_)
-open import Data.List.Relation.Unary.All as All using (All; []; _∷_)
+open import Data.Product                           using (Σ; _×_; _,_; Σ-syntax); open Σ
+open import Data.Sum                               using (_⊎_; inj₁; inj₂; [_,_])
+open import Data.Empty.Polymorphic                 using (⊥; ⊥-elim)
 
-open import Data.Product                        using (Σ; _×_; _,_; Σ-syntax); open Σ
-open import Data.Sum                            using (_⊎_; inj₁; inj₂; [_,_])
-open import Data.Empty.Polymorphic              using (⊥; ⊥-elim)
+open import Function                               using (_∘_)
+open import Function.Bundles                       using (Func)
 
-open import Function                            using (_∘_)
-open import Function.Bundles                    using (Func)
-
-open import Relation.Binary                     using (Setoid; IsEquivalence)
--- open import Relation.Binary.Structures          using (IsSetoid)
--- open import Relation.Binary.Bundles             using (Equivalence)
-open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; refl)
+open import Relation.Binary                        using (Setoid; IsEquivalence)
+open import Relation.Binary.PropositionalEquality  using (_≡_; refl)
 
 import Relation.Binary.Reasoning.Setoid as SetoidReasoning
 
 open Setoid using (Carrier; _≈_; isEquivalence)
 open Func renaming (f to apply)
 
+-- Letter ℓ denotes universe levels.
+
 variable
-  ℓ ℓ' ℓc ℓe ℓi ℓm ℓr ℓs ℓv : Level
-  I O S : Set ℓ
+  ℓ ℓ' ℓˢ ℓᵒ ℓᵃ ℓᵐ ℓᵉ ℓⁱ : Level
+  I : Set ℓⁱ
+  S : Set ℓˢ
 
 -- Interpreting indexed containers on Setoids
 -- This should go to the standard library...
 
-⟦_⟧s : (C : Container I S ℓc ℓr) (ξ : I → Setoid ℓs ℓe) → S → Setoid _ _
+⟦_⟧s : (C : Container I S ℓᵒ ℓᵃ) (ξ : I → Setoid ℓᵐ ℓᵉ) → S → Setoid _ _
 
 ⟦ C ⟧s ξ s .Carrier = ⟦ C ⟧ (Carrier ∘ ξ) s
 
 ⟦ Op ◃ Ar / sort ⟧s ξ s ._≈_ (op , args) (op' , args') = Σ[ eq ∈ op ≡ op' ] EqArgs eq args args'
   where
   EqArgs : (eq : op ≡ op')
-           (args  : (i : Ar op)  → ξ (sort _ i) .Carrier)
-           (args' : (i : Ar op') → ξ (sort _ i) .Carrier)
+           (args   : (i : Ar op)   → ξ (sort _ i) .Carrier)
+           (args'  : (i : Ar op')  → ξ (sort _ i) .Carrier)
          → Set _
   EqArgs refl args args' = (i : Ar op) → ξ (sort _ i) ._≈_ (args i) (args' i)
 
-⟦ Op ◃ Ar / sort ⟧s ξ s .isEquivalence .IsEquivalence.refl                        = refl , λ i → Setoid.refl  (ξ (sort _ i))
-⟦ Op ◃ Ar / sort ⟧s ξ s .isEquivalence .IsEquivalence.sym   (refl , h)            = refl , λ i → Setoid.sym   (ξ (sort _ i)) (h i)
-⟦ Op ◃ Ar / sort ⟧s ξ s .isEquivalence .IsEquivalence.trans (refl , g) (refl , h) = refl , λ i → Setoid.trans (ξ (sort _ i)) (g i) (h i)
+⟦ Op ◃ Ar / sort ⟧s ξ s  .isEquivalence .IsEquivalence.refl
+                        = refl , λ i → Setoid.refl   (ξ (sort _ i))
+⟦ Op ◃ Ar / sort ⟧s ξ s  .isEquivalence .IsEquivalence.sym    (refl , g)
+                        = refl , λ i → Setoid.sym    (ξ (sort _ i)) (g i)
+⟦ Op ◃ Ar / sort ⟧s ξ s  .isEquivalence .IsEquivalence.trans  (refl , g) (refl , h)
+                        = refl , λ i → Setoid.trans  (ξ (sort _ i)) (g i) (h i)
 
 -- A multi-sorted algebra is an indexed container.
 --
 -- * Sorts are indexes.
+--
 -- * Operators are commands.
+--
 -- * Arities/argument are responses.
 --
 -- Closed terms (initial model) are given by the W type for a container.
 
 -- We assume a fixed signature (Sort, Ops).
 
-module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
+module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
   open Container Ops renaming
-    ( Command  to Op
-    ; Response to Arity
-    ; next     to sort
+    ( Command   to  Op
+    ; Response  to  Arity
+    ; next      to  sort
     )
 
   variable
-    s s'   : Sort
-    op op' : Op s
+    s s'    : Sort
+    op op'  : Op s
 
   -- Models
+  ---------
 
   -- A model is given by an interpretation (Den s) for each sort s
   -- plus an interpretation (den o) for each operator o.
 
-  record SetModel ℓm : Set (ℓs ⊔ ℓc ⊔ ℓr ⊔ suc ℓm) where
+  record SetModel ℓᵐ : Set (ℓˢ ⊔ ℓᵒ ⊔ ℓᵃ ⊔ suc ℓᵐ) where
     field
-      Den : Sort → Set ℓm
+      Den : Sort → Set ℓᵐ
       den : {s : Sort} → ⟦ Ops ⟧ Den s → Den s
 
   -- The setoid model requires operators to respect equality.
 
-  record SetoidModel ℓm ℓe : Set (ℓs ⊔ ℓc ⊔ ℓr ⊔ suc (ℓm ⊔ ℓe)) where
+  record SetoidModel ℓᵐ ℓᵉ : Set (ℓˢ ⊔ ℓᵒ ⊔ ℓᵃ ⊔ suc (ℓᵐ ⊔ ℓᵉ)) where
     field
-      Den : Sort → Setoid ℓm ℓe
-      den : {s : Sort} → Func (⟦ Ops ⟧s Den s) (Den s)
+      Den  :  Sort → Setoid ℓᵐ ℓᵉ
+      den  :  {s : Sort} → Func (⟦ Ops ⟧s Den s) (Den s)
 
   -- Open terms
+  -------------
 
   -- These are covered in the standard library FreeMonad module,
   -- albeit with the restriction that the operator and variable sets
   -- have the same size.
 
-  Cxt = Sort → Set ℓc
+  Cxt = Sort → Set ℓᵒ
 
   variable
     Γ Δ : Cxt
@@ -109,37 +110,37 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
 
   module _ (Var : Cxt) where
 
-    -- We keep the same sorts, but add a nullary operator for each variable
+    -- We keep the same sorts, but add a nullary operator for each variable.
 
-    Ops⁺ : Container Sort Sort ℓc ℓr
+    Ops⁺ : Container Sort Sort ℓᵒ ℓᵃ
     Ops⁺ = Ops ⋆C Var
 
-    -- Terms are then given by the W-type for the extended container.
+    -- Terms are then given by the W-type (named μ) for the extended container.
 
-    Tm = W Ops⁺
+    Tm = μ Ops⁺
 
-    pattern _∙_ op args = W.sup (inj₂ op , args)
-    pattern var' x f    = W.sup (inj₁ x , f    )
-    pattern var x       = var' x _
+    pattern _∙_ op args  = sup (inj₂ op , args)
+    pattern var' x f     = sup (inj₁ x , f    )
+    pattern var x        = var' x _
 
-    module Interpretation (M : SetoidModel ℓm ℓe) where
+    module Interpretation (M : SetoidModel ℓᵐ ℓᵉ) where
       open SetoidModel M
 
       Env : Setoid _ _
-      Env .Carrier  = {s : Sort} (x : Var s) → Den s .Carrier
-      Env ._≈_ ρ ρ' = {s : Sort} (x : Var s) → Den s ._≈_ (ρ x) (ρ' x)
-      Env .isEquivalence .IsEquivalence.refl  {s = s} x = Den s .Setoid.refl
-      Env .isEquivalence .IsEquivalence.sym     h {s} x = Den s .Setoid.sym   (h x)
-      Env .isEquivalence .IsEquivalence.trans g h {s} x = Den s .Setoid.trans (g x) (h x)
+      Env .Carrier   = {s : Sort} (x : Var s) → Den s .Carrier
+      Env ._≈_ ρ ρ'  = {s : Sort} (x : Var s) → Den s ._≈_ (ρ x) (ρ' x)
+      Env .isEquivalence .IsEquivalence.refl  {s = s}  x = Den s .Setoid.refl
+      Env .isEquivalence .IsEquivalence.sym     h {s}  x = Den s .Setoid.sym   (h x)
+      Env .isEquivalence .IsEquivalence.trans g h {s}  x = Den s .Setoid.trans (g x) (h x)
 
       -- Interpretation of terms is iteration on the W-type.
       -- The standard library offers `iter` (on sets), but we need this to be a Func (on setoids).
 
       ⦅_⦆ : ∀{s} (t : Tm s) → Func Env (Den s)
-      ⦅ var x     ⦆ .apply ρ    = ρ x
-      ⦅ var x     ⦆ .cong  ρ=ρ' = ρ=ρ' x
-      ⦅ op ∙ args ⦆ .apply ρ    = den .apply (op   , λ i → ⦅ args i ⦆ .apply ρ)
-      ⦅ op ∙ args ⦆ .cong  ρ=ρ' = den .cong  (refl , λ i → ⦅ args i ⦆ .cong ρ=ρ')
+      ⦅ var x      ⦆ .apply  ρ     = ρ x
+      ⦅ var x      ⦆ .cong   ρ=ρ'  = ρ=ρ' x
+      ⦅ op ∙ args  ⦆ .apply  ρ     = den .apply  (op    , λ i → ⦅ args i ⦆ .apply ρ)
+      ⦅ op ∙ args  ⦆ .cong   ρ=ρ'  = den .cong   (refl  , λ i → ⦅ args i ⦆ .cong ρ=ρ')
 
       -- An equality between two terms holds in a model
       -- if the two terms are equal under all valuations of their free variables.
@@ -151,31 +152,33 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
       -- This notion is an equivalence relation.
 
       isEquiv : IsEquivalence (Equal {s})
-      isEquiv {s = s} .IsEquivalence.refl  ρ      = Den s .Setoid.refl
-      isEquiv {s = s} .IsEquivalence.sym   e ρ    = Den s .Setoid.sym (e ρ)
-      isEquiv {s = s} .IsEquivalence.trans e e' ρ = Den s .Setoid.trans (e ρ) (e' ρ)
+      isEquiv {s = s} .IsEquivalence.refl  ρ       = Den s .Setoid.refl
+      isEquiv {s = s} .IsEquivalence.sym   e ρ     = Den s .Setoid.sym (e ρ)
+      isEquiv {s = s} .IsEquivalence.trans e e' ρ  = Den s .Setoid.trans (e ρ) (e' ρ)
 
   open Interpretation using (Equal; isEquiv)
 
   -- Parallel substitutions
+  -------------------------
 
   Sub : (Γ Δ : Cxt) → Set _
   Sub Γ Δ = ∀{s} (x : Δ s) → Tm Γ s
 
   variable
-    t t' t₁ t₂ t₃ : Tm Γ s
-    ts ts' : (i : Arity op) → Tm Γ (sort _ i)
-    σ σ' : Sub Γ Δ
+    t t' t₁ t₂ t₃  :  Tm Γ s
+    ts ts'         :  (i : Arity op) → Tm Γ (sort _ i)
+    σ σ'           :  Sub Γ Δ
 
   -- Definition of substitution.
 
   _[_] : (t : Tm Δ s) (σ : Sub Γ Δ) → Tm Γ s
-  (var x  ) [ σ ] = σ x
-  (op ∙ ts) [ σ ] = op ∙ λ i → ts i [ σ ]
+  (var x  )  [ σ ] = σ x
+  (op ∙ ts)  [ σ ] = op ∙ λ i → ts i [ σ ]
 
   -- Substitution lemma
+  ---------------------
 
-  module _ {M : SetoidModel ℓm ℓe} where
+  module _ {M : SetoidModel ℓᵐ ℓᵉ} where
     open SetoidModel M
 
     -- The setoid of environments for context Γ
@@ -202,86 +205,118 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
 
     substitution : (t : Tm Δ s) (σ : Sub Γ Δ) (ρ : Interpretation.Env Γ M .Carrier) →
       ⦅ t [ σ ] ⦆ .apply ρ ~ ⦅ t ⦆ .apply (⦅ σ ⦆s ρ)
-    substitution (var x)   σ ρ = Den _ .Setoid.refl
-    substitution (op ∙ ts) σ ρ = den .cong (refl , λ i → substitution (ts i) σ ρ)
+    substitution (var x)    σ ρ = Den _ .Setoid.refl
+    substitution (op ∙ ts)  σ ρ = den .cong (refl , λ i → substitution (ts i) σ ρ)
+
+  -- Equations
+  ------------
 
   -- An equation is a pair of terms of the same sort in the same context.
 
-  record Eq : Set (ℓs ⊔ suc ℓc ⊔ ℓr) where
+  record Eq : Set (ℓˢ ⊔ suc ℓᵒ ⊔ ℓᵃ) where
     constructor _≐_
     field
-      {cxt} : Sort → Set ℓc
-      {srt} : Sort
-      lhs   : Tm cxt srt
-      rhs   : Tm cxt srt
+      {cxt}  : Sort → Set ℓᵒ
+      {srt}  : Sort
+      lhs    : Tm cxt srt
+      rhs    : Tm cxt srt
 
-  -- Equation t ≐ t' holds in model M
+  -- Equation t ≐ t' holding in model M.
 
-  _⊧_ : (M : SetoidModel ℓm ℓe) (eq : Eq) → Set _
+  _⊧_ : (M : SetoidModel ℓᵐ ℓᵉ) (eq : Eq) → Set _
   M ⊧ (t ≐ t') = Equal _ M t t'
 
-  -- Entailment/consequence E ⊃ t ≐ t' when t ≐ t' holds in all models that satify equations E.
+  -- Sets of equations are presented as collection E : I → Eq
+  -- for some index set I : Set ℓⁱ.
 
-  module _ {ℓm ℓe} where
+  -- An entailment/consequence E ⊃ t ≐ t' is valid
+  -- if t ≐ t' holds in all models that satify equations E.
 
-    _⊃_ : {I : Set ℓ} (E : I → Eq) (eq : Eq) → Set _
-    E ⊃ eq = ∀ (M : SetoidModel ℓm ℓe) → (∀ i → M ⊧ E i) → M ⊧ eq
+  module _ {ℓᵐ ℓᵉ} where
 
-  -- Equational theory over a given set of equations
+    _⊃_ : (E : I → Eq) (eq : Eq) → Set _
+    E ⊃ eq = ∀ (M : SetoidModel ℓᵐ ℓᵉ) → (∀ i → M ⊧ E i) → M ⊧ eq
 
-  data _⊢_▹_≡_ {I : Set ℓ} (E : I → Eq) : (Γ : Cxt) (t t' : Tm Γ s) → Set (ℓr ⊔ suc ℓc ⊔ ℓs ⊔ ℓ) where
-    hyp   : ∀ i → let t ≐ t' = E i in E ⊢ _ ▹ t ≡ t'
+  -- Derivations
+  --------------
 
-    base  : ∀ (x : Γ s) {f f' : (i : ⊥) → Tm _ (⊥-elim i)} → E ⊢ Γ ▹ var' x f ≡ var' x f'
-    app   : (es : ∀ i → E ⊢ Γ ▹ ts i ≡ ts' i) → E ⊢ Γ ▹ (op ∙ ts) ≡ (op ∙ ts')
-    sub   : (e : E ⊢ Δ ▹ t ≡ t') (σ : Sub Γ Δ) → E ⊢ Γ ▹ (t [ σ ]) ≡ (t' [ σ ])
+  -- Equational theory over a given set of equations.
 
-    refl  : (t : Tm Γ s) → E ⊢ Γ ▹ t ≡ t
-    sym   : (e : E ⊢ Γ ▹ t ≡ t') → E ⊢ Γ ▹ t' ≡ t
-    trans : (e : E ⊢ Γ ▹ t₁ ≡ t₂) (e' : E ⊢ Γ ▹ t₂ ≡ t₃) → E ⊢ Γ ▹ t₁ ≡ t₃
+  data _⊢_▹_≡_ {I : Set ℓⁱ}
+    (E : I → Eq) : (Γ : Cxt) (t t' : Tm Γ s) → Set (ℓˢ ⊔ suc ℓᵒ ⊔ ℓᵃ ⊔ ℓⁱ) where
+
+    hyp    :  ∀ i → let t ≐ t' = E i in
+              E ⊢ _ ▹ t ≡ t'
+
+    base   :  ∀ (x : Γ s) {f f' : (i : ⊥) → Tm _ (⊥-elim i)} →
+              E ⊢ Γ ▹ var' x f ≡ var' x f'
+
+    app    :  (∀ i → E ⊢ Γ ▹ ts i ≡ ts' i) →
+              E ⊢ Γ ▹ (op ∙ ts) ≡ (op ∙ ts')
+
+    sub    :  E ⊢ Δ ▹ t ≡ t' →
+              ∀ (σ : Sub Γ Δ) →
+              E ⊢ Γ ▹ (t [ σ ]) ≡ (t' [ σ ])
+
+    refl   :  ∀ (t : Tm Γ s) →
+              E ⊢ Γ ▹ t ≡ t
+
+    sym    :  E ⊢ Γ ▹ t ≡ t' →
+              E ⊢ Γ ▹ t' ≡ t
+
+    trans  :  E ⊢ Γ ▹ t₁ ≡ t₂ →
+              E ⊢ Γ ▹ t₂ ≡ t₃ →
+              E ⊢ Γ ▹ t₁ ≡ t₃
 
   -- Soundness of the inference rules
+  -----------------------------------
 
-  module Soundness {I : Set ℓ} (E : I → Eq) (M : SetoidModel ℓm ℓe) (V : ∀ i → M ⊧ E i) where
+  module Soundness {I : Set ℓⁱ} (E : I → Eq) (M : SetoidModel ℓᵐ ℓᵉ) (V : ∀ i → M ⊧ E i) where
     open SetoidModel M
 
-    -- In any model M that satisfies the equations E, derived equality is actual equality.
+    -- In any model M that satisfies the equations E,
+    -- derived equality is actual equality.
 
     sound : E ⊢ Γ ▹ t ≡ t' → M ⊧ (t ≐ t')
 
-    sound (hyp i) = V i
-    sound (app {op = op} es) ρ = den .cong (refl , λ i → sound (es i) ρ)
-    sound (sub {t = t} {t' = t'} e σ) ρ = begin
-      ⦅ t  [ σ ] ⦆ .apply ρ  ≈⟨ substitution {M = M} t σ ρ ⟩
-      ⦅ t  ⦆ .apply ρ'       ≈⟨ sound e ρ' ⟩
-      ⦅ t' ⦆ .apply ρ'      ≈˘⟨ substitution {M = M} t' σ ρ ⟩
-      ⦅ t' [ σ ] ⦆ .apply ρ ∎
+    sound (hyp i)                        = V i
+    sound (app {op = op} es) ρ           = den .cong (refl , λ i → sound (es i) ρ)
+    sound (sub {t = t} {t' = t'} e σ) ρ  = begin
+      ⦅ t [ σ ]   ⦆ .apply ρ   ≈⟨ substitution {M = M} t σ ρ ⟩
+      ⦅ t         ⦆ .apply ρ'  ≈⟨ sound e ρ' ⟩
+      ⦅ t'        ⦆ .apply ρ'  ≈˘⟨ substitution {M = M} t' σ ρ ⟩
+      ⦅ t' [ σ ]  ⦆ .apply ρ   ∎
       where
       open SetoidReasoning (Den _)
       ρ' = ⦅ σ ⦆s ρ
 
-    sound (base x {f} {f'})                          = isEquiv _ M .IsEquivalence.refl {var' x λ()}
+    sound (base x {f} {f'})                           =  isEquiv _ M .IsEquivalence.refl {var' x λ()}
 
-    sound (refl t)                                   = isEquiv _ M .IsEquivalence.refl {t}
-    sound (sym {t = t} {t' = t'} e)                  = isEquiv _ M .IsEquivalence.sym {x = t} {y = t'} (sound e)
-    sound (trans {t₁ = t₁} {t₂ = t₂} {t₃ = t₃} e e') = isEquiv _ M .IsEquivalence.trans {i = t₁} {j = t₂} {k = t₃} (sound e) (sound e')
+    sound (refl t)                                    =  isEquiv _ M .IsEquivalence.refl {t}
+    sound (sym {t = t} {t' = t'} e)                   =  isEquiv _ M .IsEquivalence.sym
+                                                         {x = t} {y = t'} (sound e)
+    sound (trans {t₁ = t₁} {t₂ = t₂} {t₃ = t₃} e e')  =  isEquiv _ M .IsEquivalence.trans
+                                                         {i = t₁} {j = t₂} {k = t₃} (sound e) (sound e')
 
-  -- A term model for E and Γ interprets sort s by Tm Γ s quotiented by E⊢Γ▹_≡_.
+  -- Universal model
+  ------------------
 
-  module TermModel {I : Set ℓ} (E : I → Eq) where
+  -- A term model for E and Γ interprets sort s by Tm Γ s quotiented by E⊢Γ·≡·.
+
+  module TermModel {I : Set ℓⁱ} (E : I → Eq) where
     open SetoidModel
 
-    -- Tm Γ s quotiented by E⊢Γ▹_≡_
+    -- Tm Γ s quotiented by E⊢Γ▹·≡·.
 
     TmSetoid : Cxt → Sort → Setoid _ _
-    TmSetoid Γ s .Carrier = Tm Γ s
-    TmSetoid Γ s ._≈_ = E ⊢ Γ ▹_≡_
-    TmSetoid Γ s .isEquivalence .IsEquivalence.refl = refl _
-    TmSetoid Γ s .isEquivalence .IsEquivalence.sym  = sym
-    TmSetoid Γ s .isEquivalence .IsEquivalence.trans = trans
+    TmSetoid Γ s .Carrier                             = Tm Γ s
+    TmSetoid Γ s ._≈_                                 = E ⊢ Γ ▹_≡_
+    TmSetoid Γ s .isEquivalence .IsEquivalence.refl   = refl _
+    TmSetoid Γ s .isEquivalence .IsEquivalence.sym    = sym
+    TmSetoid Γ s .isEquivalence .IsEquivalence.trans  = trans
 
     -- The interpretation of an operator is simply the operator.
-    -- This works because E⊢Γ▹_≡_ is a congruence.
+    -- This works because E⊢Γ▹·≡· is a congruence.
 
     tmInterp : ∀ {Γ s} → Func (⟦ Ops ⟧s (TmSetoid Γ) s) (TmSetoid Γ s)
     tmInterp .apply (op , ts) = op ∙ ts
@@ -301,15 +336,15 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
     -- σ₀ acts indeed as identity.
 
     identity : (t : Tm Γ s) → E ⊢ Γ ▹ t [ σ₀ ] ≡ t
-    identity (var x)   = base x
-    identity (op ∙ ts) = app λ i → identity (ts i)
+    identity (var x)    = base x
+    identity (op ∙ ts)  = app λ i → identity (ts i)
 
     -- Evaluation in the term model is substitution E ⊢ Γ ▹ ⦅t⦆σ ≡ t[σ].
     -- This would even hold "up to the nose" if we had function extensionality.
 
     evaluation : (t : Tm Δ s) (σ : Sub Γ Δ) → E ⊢ Γ ▹ (⦅_⦆ {M = M Γ} t .apply σ) ≡ (t [ σ ])
-    evaluation (var x)   σ = refl (σ x)
-    evaluation (op ∙ ts) σ = app (λ i → evaluation (ts i) σ)
+    evaluation (var x)    σ = refl (σ x)
+    evaluation (op ∙ ts)  σ = app (λ i → evaluation (ts i) σ)
 
     -- The term model satisfies all the equations it started out with.
 
@@ -317,8 +352,8 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
     satisfies i σ = begin
       ⦅ tₗ ⦆ .apply σ  ≈⟨ evaluation tₗ σ ⟩
       tₗ [ σ ]         ≈⟨ sub (hyp i) σ ⟩
-      tᵣ [ σ ]        ≈˘⟨ evaluation tᵣ σ ⟩
-      ⦅ tᵣ ⦆ .apply σ ∎
+      tᵣ [ σ ]         ≈˘⟨ evaluation tᵣ σ ⟩
+      ⦅ tᵣ ⦆ .apply σ  ∎
       where
       open SetoidReasoning (TmSetoid _ _)
       tₗ  = E i .Eq.lhs
@@ -327,20 +362,20 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
   -- Birkhoff's completeness theorem (1935):
   -- Any valid consequence is derivable in the equational theory.
 
-  module Completeness {I : Set ℓ} (E : I → Eq) {Γ s} {t t' : Tm Γ s} where
+  module Completeness {I : Set ℓⁱ} (E : I → Eq) {Γ s} {t t' : Tm Γ s} where
     open TermModel E
 
     completeness : E ⊃ (t ≐ t') → E ⊢ Γ ▹ t ≡ t'
     completeness V = begin
-      t                 ≈˘⟨ identity t ⟩
-      t  [ σ₀ ]         ≈˘⟨ evaluation t σ₀ ⟩
-      ⦅ t  ⦆ .apply σ₀  ≈⟨ V (M Γ) satisfies σ₀ ⟩
-      ⦅ t' ⦆ .apply σ₀  ≈⟨ evaluation t' σ₀ ⟩
-      t' [ σ₀ ]         ≈⟨ identity t' ⟩
-      t' ∎
+      t                  ≈˘⟨ identity t ⟩
+      t  [ σ₀ ]          ≈˘⟨ evaluation t σ₀ ⟩
+      ⦅ t   ⦆ .apply σ₀  ≈⟨ V (M Γ) satisfies σ₀ ⟩
+      ⦅ t'  ⦆ .apply σ₀  ≈⟨ evaluation t' σ₀ ⟩
+      t' [ σ₀ ]          ≈⟨ identity t' ⟩
+      t'                 ∎
       where open SetoidReasoning (TmSetoid Γ s)
 
--- Q.E.D 2021-05-28
+{- Q.E.D 2021-05-28 -}
 
 -- -}
 -- -}

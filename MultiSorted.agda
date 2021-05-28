@@ -1,7 +1,9 @@
--- Multi-sorted algebras as indexed containers
--- ===========================================
+{- Multi-sorted algebras as indexed containers
+   Created 2021-05-26
+-}
 
-{- Created 2021-05-26 -}
+-- Preliminaries
+-- =============
 
 open import Level
 
@@ -53,6 +55,9 @@ variable
 ⟦ Op ◃ Ar / sort ⟧s ξ s  .isEquivalence .IsEquivalence.trans  (refl , g) (refl , h)
                         = refl , λ i → Setoid.trans  (ξ (sort _ i)) (g i) (h i)
 
+-- Multi-sorted algebras
+-- =====================
+--
 -- A multi-sorted algebra is an indexed container.
 --
 -- * Sorts are indexes.
@@ -94,8 +99,8 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
       Den  :  Sort → Setoid ℓᵐ ℓᵉ
       den  :  {s : Sort} → Func (⟦ Ops ⟧s Den s) (Den s)
 
-  -- Open terms
-  -------------
+  -- Terms
+  -- =====
 
   -- These are covered in the standard library FreeMonad module,
   -- albeit with the restriction that the operator and variable sets
@@ -209,7 +214,7 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
     substitution (op ∙ ts)  σ ρ = den .cong (refl , λ i → substitution (ts i) σ ρ)
 
   -- Equations
-  ------------
+  -- =========
 
   -- An equation is a pair of terms of the same sort in the same context.
 
@@ -298,6 +303,9 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
     sound (trans {t₁ = t₁} {t₂ = t₂} {t₃ = t₃} e e')  =  isEquiv _ M .IsEquivalence.trans
                                                          {i = t₁} {j = t₂} {k = t₃} (sound e) (sound e')
 
+  -- Birkhoff's completeness theorem
+  -- ===============================
+
   -- Universal model
   ------------------
 
@@ -359,7 +367,10 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
       tₗ  = E i .Eq.lhs
       tᵣ = E i .Eq.rhs
 
-  -- Birkhoff's completeness theorem (1935):
+  -- Completeness
+  ---------------
+
+  -- Birkhoff's completeness theorem \citeyearpar{birkhoff:1935}:
   -- Any valid consequence is derivable in the equational theory.
 
   module Completeness {I : Set ℓⁱ} (E : I → Eq) {Γ s} {t t' : Tm Γ s} where

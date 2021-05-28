@@ -43,7 +43,6 @@ variable
 ⟦_⟧s : (C : Container I S ℓc ℓr) (ξ : I → Setoid ℓs ℓe) → S → Setoid _ _
 
 ⟦ C ⟧s ξ s .Carrier = ⟦ C ⟧ (Carrier ∘ ξ) s
--- ⟦ Op ◃ Ar / sort ⟧s ξ s .Carrier = Σ[ o ∈ Op s ] ((arg : Ar o) → ξ (sort _ arg) .Carrier)
 
 ⟦ Op ◃ Ar / sort ⟧s ξ s ._≈_ (op , args) (op' , args') = Σ[ eq ∈ op ≡ op' ] EqArgs eq args args'
   where
@@ -95,76 +94,9 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
       Den : Sort → Setoid ℓm ℓe
       den : {s : Sort} → Func (⟦ Ops ⟧s Den s) (Den s)
 
+  -- Open terms
 
--- Open terms
-
----------------------------------------------------------------------------
--- BRACKET BEGIN
-
-  module Terms where
-
-    Cxt = List Sort
-
-    data Tm (Γ : Cxt) (s : Sort) : Set (ℓs ⊔ ℓc ⊔ ℓr) where
-      var : (x : s ∈ Γ) → Tm Γ s
-      app : (o : Op s) (args : (i : Arity o) → Tm Γ (sort o i)) → Tm Γ s
-
-    record Eq : Set (ℓs ⊔ ℓc ⊔ ℓr) where
-      constructor _≐_
-      field
-        {cxt} : Cxt
-        {srt} : Sort
-        lhs   : Tm cxt srt
-        rhs   : Tm cxt srt
-
-    variable
-      Γ : Cxt
-      t : Tm Γ s
-      e : Eq
-
-    module Interpretation (M : SetModel ℓm) where
-      open SetModel M renaming (Den to ⟪_⟫)
-
-      Env = All ⟪_⟫
-
-      ⦅_⦆ : (t : Tm Γ s) (ρ : Env Γ) → ⟪ s ⟫
-      ⦅ var x    ⦆ ρ = All.lookup ρ x
-      ⦅ app o ts ⦆ ρ = den (o , λ i → ⦅ ts i ⦆ ρ)
-
-      -- Validity of an equation needs a concept of equality
-
-
-  -- Alternatively, we can model open terms by assuming new constants.
-
-  module NewSymbols (Var : Sort → Set ℓv) where
-
-    -- We keep the same sorts, but add a nullary operator for each variable
-
-    C⁺ : Container Sort Sort (ℓc ⊔ ℓv) ℓr
-    C⁺ = (λ s → Var s ⊎ Op s) ◃ [ (λ x → ⊥) , Arity ] / [ (λ x ()) , sort ]
-
-    -- Terms are then given by the W-type for the extended container.
-
-    Tm = W C⁺
-
-    module Interpretation (M : SetModel ℓm) where
-      open SetModel M renaming (Den to ⟪_⟫)
-
-      Env = {s : Sort} (x : Var s) → ⟪ s ⟫
-
-      -- Interpretation of terms is iteration on the W-type
-
-      ⦅_⦆ : ∀{s} (t : Tm s) (ρ : Env) → ⟪ s ⟫
-      ⦅ t ⦆ ρ = iter C⁺ step t
-        where
-        step : ⟦ C⁺ ⟧ ⟪_⟫ s' → ⟪ s' ⟫
-        step (inj₁ x , _)    = ρ x
-        step (inj₂ o , args) = den (o , args)
-
--- BRACKET END
----------------------------------------------------------------------------
-
-  -- This is also covered in the standard library FreeMonad module,
+  -- These are covered in the standard library FreeMonad module,
   -- albeit with the restriction that the operator and variable sets
   -- have the same size.
 
@@ -173,7 +105,9 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
   variable
     Γ Δ : Cxt
 
-  module NewSymbols' (Var : Cxt) where
+  -- Terms with free variables in Var.
+
+  module _ (Var : Cxt) where
 
     -- We keep the same sorts, but add a nullary operator for each variable
 
@@ -191,33 +125,21 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
     module Interpretation (M : SetoidModel ℓm ℓe) where
       open SetoidModel M
 
-      ⟪_⟫ : Sort → Set ℓm
-      ⟪ s ⟫ = Den s .Carrier
-
       Env : Setoid _ _
-      Env .Carrier  = {s : Sort} (x : Var s) → ⟪ s ⟫
+      Env .Carrier  = {s : Sort} (x : Var s) → Den s .Carrier
       Env ._≈_ ρ ρ' = {s : Sort} (x : Var s) → Den s ._≈_ (ρ x) (ρ' x)
       Env .isEquivalence .IsEquivalence.refl  {s = s} x = Den s .Setoid.refl
       Env .isEquivalence .IsEquivalence.sym     h {s} x = Den s .Setoid.sym   (h x)
       Env .isEquivalence .IsEquivalence.trans g h {s} x = Den s .Setoid.trans (g x) (h x)
 
       -- Interpretation of terms is iteration on the W-type.
-      -- The standard library offers `iter`, but we need this to be a Func.
+      -- The standard library offers `iter` (on sets), but we need this to be a Func (on setoids).
 
       ⦅_⦆ : ∀{s} (t : Tm s) → Func Env (Den s)
       ⦅ var x     ⦆ .apply ρ    = ρ x
       ⦅ var x     ⦆ .cong  ρ=ρ' = ρ=ρ' x
       ⦅ op ∙ args ⦆ .apply ρ    = den .apply (op   , λ i → ⦅ args i ⦆ .apply ρ)
       ⦅ op ∙ args ⦆ .cong  ρ=ρ' = den .cong  (refl , λ i → ⦅ args i ⦆ .cong ρ=ρ')
-
-      -- ⦅ t ⦆ .apply ρ = iter C⁺ step t
-      --   where
-      --   step : ⟦ C⁺ ⟧ ⟪_⟫ s' → ⟪ s' ⟫
-      --   step (inj₁ x , _)    = ρ x
-      --   step (inj₂ o , args) = den .apply (o , args)
-      -- ⦅ t ⦆ .cong ρ=ρ' = {!!}
-
-      -- TODO: make iter a Func in the standard library
 
       -- An equality between two terms holds in a model
       -- if the two terms are equal under all valuations of their free variables.
@@ -233,7 +155,6 @@ module _ (Sort : Set ℓs) (Ops : Container Sort Sort ℓc ℓr) where
       isEquiv {s = s} .IsEquivalence.sym   e ρ    = Den s .Setoid.sym (e ρ)
       isEquiv {s = s} .IsEquivalence.trans e e' ρ = Den s .Setoid.trans (e ρ) (e' ρ)
 
-  open NewSymbols' using (Tm; var; var'; _∙_; module Interpretation)
   open Interpretation using (Equal; isEquiv)
 
   -- Parallel substitutions

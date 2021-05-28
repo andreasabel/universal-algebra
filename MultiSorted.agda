@@ -22,8 +22,13 @@ open import Data.Empty.Polymorphic              using (⊥; ⊥-elim)
 
 open import Function                            using (_∘_)
 open import Function.Bundles                    using (Func)
+
 open import Relation.Binary                     using (Setoid; IsEquivalence)
+-- open import Relation.Binary.Structures          using (IsSetoid)
+-- open import Relation.Binary.Bundles             using (Equivalence)
 open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; refl)
+
+import Relation.Binary.Reasoning.Setoid as SetoidReasoning
 
 open Setoid using (Carrier; _≈_; isEquivalence)
 open Func renaming (f to apply)
@@ -174,8 +179,9 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
 
     Tm = W C⁺
 
-    pattern var x       = W.sup (inj₁ x , _    )
     pattern _∙_ op args = W.sup (inj₂ op , args)
+    pattern var' x f    = W.sup (inj₁ x , f    )
+    pattern var x       = var' x _
 
     module Interpretation (M : SetoidModel ℓm ℓe) where
       open SetoidModel M
@@ -211,11 +217,17 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
       Equal {s} t t' = ∀ (ρ : Env .Carrier) → ⦅ t ⦆ .apply ρ ~ ⦅ t' ⦆ .apply ρ
         where _~_ = Den s ._≈_
 
+      isEquiv : IsEquivalence (Equal {s})
+      isEquiv {s = s} .IsEquivalence.refl  ρ      = Den s .Setoid.refl
+      isEquiv {s = s} .IsEquivalence.sym   e ρ    = Den s .Setoid.sym (e ρ)
+      isEquiv {s = s} .IsEquivalence.trans e e' ρ = Den s .Setoid.trans (e ρ) (e' ρ)
+
     -- Equal terms in a model
 
-    _⊧_≐_ = Interpretation.Equal
+    -- _⊧_≐_ = Interpretation.Equal
 
-  open NewSymbols' using (Tm; var; _∙_)
+  open NewSymbols' using (Tm; var; var'; _∙_; module Interpretation)
+  open Interpretation using (Equal; isEquiv)
 
   Sub : (Γ Δ : Cxt) → Set _
   Sub Γ Δ = ∀{s} (x : Δ s) → Tm Γ s
@@ -231,6 +243,25 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
   (var x  ) [ σ ] = σ x
   (op ∙ ts) [ σ ] = op ∙ λ i → ts i [ σ ]
 
+  -- Substitution lemma
+
+  module _ {M : SetoidModel ℓm ℓe} where
+    open SetoidModel M
+
+    ⦅_⦆ : ∀{Γ s} → Tm Γ s → Func (Interpretation.Env Γ M) (Den s)
+    ⦅_⦆ {Γ} = Interpretation.⦅_⦆ Γ M
+
+    ⦅_⦆s : Sub Γ Δ → Interpretation.Env Γ M .Carrier → Interpretation.Env Δ M .Carrier
+    ⦅ σ ⦆s ρ x = ⦅ σ x ⦆ .apply ρ
+
+    _~_ : Den s .Carrier → Den s .Carrier → Set _
+    _~_ {s = s} = Den s ._≈_
+
+    substitution : (t : Tm Δ s) (σ : Sub Γ Δ) (ρ : Interpretation.Env Γ M .Carrier) →
+      ⦅ t [ σ ] ⦆ .apply ρ ~ ⦅ t ⦆ .apply (⦅ σ ⦆s ρ)
+    substitution (var x)   σ ρ = Den _ .Setoid.refl
+    substitution (op ∙ ts) σ ρ = den .cong (refl , λ i → substitution (ts i) σ ρ)
+
   record Eq : Set (ℓs ⊔ suc ℓc ⊔ ℓr) where
     constructor _≐_
     field
@@ -239,31 +270,117 @@ module _ (Sort : Set ℓs) (C : Container Sort Sort ℓc ℓr) where
       lhs   : Tm cxt srt
       rhs   : Tm cxt srt
 
-  module _ ℓm ℓe where
+  _⊧_ : (M : SetoidModel ℓm ℓe) (eq : Eq) → Set _
+  M ⊧ (t ≐ t') = Equal _ M t t'
+
+  module _ {ℓm ℓe} where
 
     Valid : Eq → Set _
-    Valid (t ≐ t') = ∀ (M : SetoidModel ℓm ℓe) → M ⊧ t ≐ t'
-      where open NewSymbols' _ using (_⊧_≐_)
+    Valid eq = ∀ (M : SetoidModel ℓm ℓe) → M ⊧ eq
 
     Valids : {I : Set ℓ} (E : I → Eq) → Set _
     Valids E = ∀ i → Valid (E i)
 
-  -- A variety
+    _⊃_ : {I : Set ℓ} (E : I → Eq) (eq : Eq) → Set _
+    E ⊃ eq = ∀ (M : SetoidModel ℓm ℓe) → (∀ i → M ⊧ E i) → M ⊧ eq
 
-  module Theory {I : Set ℓ} (E : I → Eq) where
+  -- Equational theory over a given set of equations
 
-    data _⊢_≡_ : (Γ : Cxt) (t t' : Tm Γ s) → Set (ℓr ⊔ suc ℓc ⊔ ℓs ⊔ ℓ) where
-      hyp   : ∀ i → let t ≐ t' = E i in _ ⊢ t ≡ t'
+  data _⊢_▹_≡_ {I : Set ℓ} (E : I → Eq) : (Γ : Cxt) (t t' : Tm Γ s) → Set (ℓr ⊔ suc ℓc ⊔ ℓs ⊔ ℓ) where
+    hyp   : ∀ i → let t ≐ t' = E i in E ⊢ _ ▹ t ≡ t'
 
-      app   : (∀ i → Γ ⊢ ts i ≡ ts' i) → Γ ⊢ (op ∙ ts) ≡ (op ∙ ts')
-      sub   : (e : Δ ⊢ t ≡ t') (σ : Sub Γ Δ) → Γ ⊢ (t [ σ ]) ≡ (t' [ σ ])
+    base  : ∀ (x : Γ s) {f f' : (i : ⊥) → Tm _ (⊥-elim i)} → E ⊢ Γ ▹ var' x f ≡ var' x f'
+    app   : (es : ∀ i → E ⊢ Γ ▹ ts i ≡ ts' i) → E ⊢ Γ ▹ (op ∙ ts) ≡ (op ∙ ts')
+    sub   : (e : E ⊢ Δ ▹ t ≡ t') (σ : Sub Γ Δ) → E ⊢ Γ ▹ (t [ σ ]) ≡ (t' [ σ ])
 
-      refl  : Γ ⊢ t ≡ t
-      sym   : (e : Γ ⊢ t ≡ t') → Γ ⊢ t' ≡ t
-      trans : (e : Γ ⊢ t₁ ≡ t₂) (e' : Γ ⊢ t₂ ≡ t₃) → Γ ⊢ t₁ ≡ t₃
+    refl  : (t : Tm Γ s) → E ⊢ Γ ▹ t ≡ t
+    sym   : (e : E ⊢ Γ ▹ t ≡ t') → E ⊢ Γ ▹ t' ≡ t
+    trans : (e : E ⊢ Γ ▹ t₁ ≡ t₂) (e' : E ⊢ Γ ▹ t₂ ≡ t₃) → E ⊢ Γ ▹ t₁ ≡ t₃
 
-    -- data _⊢_∋_≡_ : (Γ Δ : Cxt) (σ σ' : Sub Γ Δ) → Set _ where
+  module Soundness {I : Set ℓ} (E : I → Eq) (M : SetoidModel ℓm ℓe) (V : ∀ i → M ⊧ E i) where
+    open SetoidModel M
 
+    sound : E ⊢ Γ ▹ t ≡ t' → M ⊧ (t ≐ t')
+
+    sound (hyp i) = V i
+    sound (app {op = op} es) ρ = den .cong (refl , λ i → sound (es i) ρ)
+    sound (sub {t = t} {t' = t'} e σ) ρ = begin
+      ⦅ t  [ σ ] ⦆ .apply ρ  ≈⟨ substitution {M = M} t σ ρ ⟩
+      ⦅ t  ⦆ .apply ρ'       ≈⟨ sound e ρ' ⟩
+      ⦅ t' ⦆ .apply ρ'      ≈˘⟨ substitution {M = M} t' σ ρ ⟩
+      ⦅ t' [ σ ] ⦆ .apply ρ ∎
+      where
+      open SetoidReasoning (Den _)
+      ρ' = ⦅ σ ⦆s ρ
+
+    sound (base x {f} {f'})                          = isEquiv _ M .IsEquivalence.refl {var' x λ()}
+
+    sound (refl t)                                   = isEquiv _ M .IsEquivalence.refl {t}
+    sound (sym {t = t} {t' = t'} e)                  = isEquiv _ M .IsEquivalence.sym {x = t} {y = t'} (sound e)
+    sound (trans {t₁ = t₁} {t₂ = t₂} {t₃ = t₃} e e') = isEquiv _ M .IsEquivalence.trans {i = t₁} {j = t₂} {k = t₃} (sound e) (sound e')
+
+  -- data _⊢_∋_≡_ : (Γ Δ : Cxt) (σ σ' : Sub Γ Δ) → Set _ where
+
+  module TermModel {I : Set ℓ} (E : I → Eq) where
+    open SetoidModel
+
+    TmSetoid : Cxt → Sort → Setoid _ _
+    TmSetoid Γ s .Carrier = Tm Γ s
+    TmSetoid Γ s ._≈_ = E ⊢ Γ ▹_≡_
+    TmSetoid Γ s .isEquivalence .IsEquivalence.refl = refl _
+    TmSetoid Γ s .isEquivalence .IsEquivalence.sym  = sym
+    TmSetoid Γ s .isEquivalence .IsEquivalence.trans = trans
+
+    tmInterp : ∀ {Γ s} → Func (⟦ C ⟧s (TmSetoid Γ) s) (TmSetoid Γ s)
+    tmInterp .apply (op , ts) = op ∙ ts
+    tmInterp .cong (refl , h) = app h
+
+    M : Cxt → SetoidModel _ _
+    M Γ .Den = TmSetoid Γ
+    M Γ .den = tmInterp
+
+    -- Identity substitution
+
+    σ₀ : {Γ : Cxt} → Sub Γ Γ
+    σ₀ x = W.sup (inj₁ x , λ())
+
+    identity : (t : Tm Γ s) → E ⊢ Γ ▹ t [ σ₀ ] ≡ t
+    identity (var x)   = base x
+    identity (op ∙ ts) = app λ i → identity (ts i)
+
+    identity′ : (t : Tm Γ s) → E ⊢ Γ ▹ (⦅_⦆ {M = M Γ} t .apply σ₀) ≡ t
+    identity′ (var x)   = base x
+    identity′ (op ∙ ts) = app λ i → identity′ (ts i)
+
+    -- This property has problems because the TmSetoid is defined for a fixed Γ
+    -- -- evaluation : (t : Tm Δ s) (σ : Sub Γ Δ) → E ⊢ Γ ▹ (⦅ t ⦆ .apply σ) ≡ (t [ σ ])
+    -- evaluation : (t : Tm Δ s) (σ : Sub Γ Δ) → E ⊢ Γ ▹ (⦅_⦆ {M = M Δ} t .apply σ) ≡ (t [ σ ])
+    -- evaluation (var x)   σ = refl (σ x)
+    -- evaluation (op ∙ ts) σ = app (λ i → evaluation (ts i) σ)
+
+
+  -- If
+
+  module Completeness {I : Set ℓ} (E : I → Eq) {Γ s} {t t' : Tm Γ s} where
+    open TermModel E
+
+    completeness : E ⊃ (t ≐ t') → E ⊢ Γ ▹ t ≡ t'
+    completeness V = begin
+      t                ≈˘⟨ identity′ t ⟩
+      ⦅ t  ⦆ .apply σ₀  ≈⟨  V (M Γ) (λ i → {!hyp i!}) σ₀   ⟩
+      ⦅ t' ⦆ .apply σ₀  ≈⟨ identity′ t' ⟩
+      t' ∎
+      where open SetoidReasoning (TmSetoid Γ s)
+
+    -- completeness : Valid (ℓs ⊔ ℓc ⊔ ℓr) ((ℓs ⊔ suc ℓc ⊔ ℓr ⊔ ℓ)) (t ≐ t') → E ⊢ Γ ▹ t ≡ t'
+    -- completeness V = begin
+    --   t              ≈˘⟨ identity t ⟩
+    --   t  [ σ₀ ]       ≈⟨ {! V (M Γ) σ₀ !} ⟩
+    --   ⦅ t  ⦆ .apply σ₀ ≈⟨  V (M Γ) σ₀  ⟩
+    --   ⦅ t' ⦆ .apply σ₀ ≈⟨ {! V (M Γ) σ₀ !} ⟩
+    --   t' [ σ₀ ]       ≈⟨ identity t' ⟩
+    --   t' ∎
+    --   where open SetoidReasoning (TmSetoid Γ s)
 
 -- -}
 -- -}

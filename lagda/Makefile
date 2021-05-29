@@ -36,9 +36,11 @@ files=lipics-v2019.cls Makefile \
 
 .PRECIOUS : %.pdf %.tex # %.dvi %.ps %.gz
 
-default : MultiSorted.pdf
+default : MultiSortedAlgebra.pdf
 
 all : default
+
+ship : $(destdir)/agda/MultiSortedAlgebra.pdf
 
 # The generic rule does somehow not work
 .PHONY: ship-%
@@ -55,12 +57,12 @@ main.zip : main.pdf $(files) main.bbl auto-main.bib
 latex/%.tex : %.lagda.tex
 	agda --latex $<
 
-# MultiSorted
+# MultiSortedAlgebra
 ##################################################################
 
 # initially, run latex once to create an .aux file
 # mark .aux file as fresh by creating a stamp _aux
-MultiSorted_aux : MultiSorted.tex template.tex latex/MultiSorted.tex
+MultiSortedAlgebra_aux : MultiSortedAlgebra.tex template.tex latex/MultiSortedAlgebra.tex
 	-$(pdflatex) $<;
 	touch $@;
 

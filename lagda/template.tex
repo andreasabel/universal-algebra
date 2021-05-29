@@ -1,0 +1,119 @@
+\nonstopmode
+%\RequirePackage{unicode-math}
+%\RequirePackage{latex/agda} %xkeyval does not want to be loaded here
+
+\documentclass[a4paper]{scrartcl}
+
+% \usepackage{amsmath}
+% \usepackage{cleveref}
+% \usepackage{xspace}
+\usepackage{stmaryrd}
+% \usepackage{dsfont} % mathds
+% \usepackage{enumitem} %% not allowed, but would be needed for leftmargin
+% \usepackage[hang,flushmargin]{footmisc}
+
+% % https://texblog.org/2012/03/21/cross-referencing-list-items/
+% \makeatletter
+% \def\namedlabel#1#2{\begingroup
+%     #2%
+%     \def\@currentlabel{#2}%
+%     \phantomsection\label{#1}\endgroup
+% }
+% \makeatother
+
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{ifthen}
+\usepackage{textgreek}
+\usepackage{unicode-math}
+\setmainfont{XITS}
+\setmathfont{XITS Math}
+\usepackage{latex/agda}
+
+\ifxetexorluatex
+  \renewcommand{\AgdaFontStyle}[1]{\ensuremath{\mathsf{#1}}}
+  \ifthenelse{\equal{\AgdaColourScheme}{bw}}{
+      \renewcommand{\AgdaKeywordFontStyle}[1]{\underline{#1}}
+  }{
+      \renewcommand{\AgdaKeywordFontStyle}[1]{\ensuremath{\mathsf{#1}}}
+  }
+  \renewcommand{\AgdaStringFontStyle}[1]{\ensuremath{\texttt{#1}}}
+  \renewcommand{\AgdaCommentFontStyle}[1]{\ensuremath{\texttt{#1}}}
+  \renewcommand{\AgdaBoundFontStyle}[1]{\ensuremath{\mathit{#1}}}
+\fi
+
+\usepackage{newunicodechar}
+\newunicodechar{ε}{\ensuremath{\mathnormal\varepsilon}}
+\newunicodechar{λ}{\ensuremath{\mathnormal\lambda}}
+\newunicodechar{μ}{\ensuremath{\mathnormal\mu}}
+\newunicodechar{ρ}{\ensuremath{\mathnormal\rho}}
+\newunicodechar{σ}{\ensuremath{\mathnormal\sigma}}
+\newunicodechar{ⁱ}{\ensuremath{\mathnormal{}^i}}
+\newunicodechar{₀}{\ensuremath{\mathnormal{}_0}}
+\newunicodechar{₁}{\ensuremath{\mathnormal{}_1}}
+\newunicodechar{▹}{\ensuremath{\mathrel\vartriangleright}}
+\newunicodechar{⟦}{\ensuremath{\llbracket}}
+\newunicodechar{⟧}{\ensuremath{\rrbracket}}
+%\newunicodechar{ℓ}{\ensuremath{\mathnormal\ell}} % no effect
+
+\ifdefined\heading
+\else
+\newcommand{\heading}[1]{\section{#1}}
+\fi
+
+\ifdefined\subheading
+\else
+\newcommand{\subheading}[1]{\subsection{#1}}
+\fi
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1ex}
+
+\ifdefined\TITLE\title{\TITLE}\fi
+
+\ifdefined\AUTHOR
+\author{\AUTHOR}
+\else
+\author{%
+  Andreas Abel
+  \\
+  Department of Computer Science,
+  Gothenburg University,
+  Sweden
+  }
+\fi
+
+\ifdefined\DATE\date{\DATE}\else\date{\today}\fi
+
+\newcommand{\GENERATED}{%
+  This document has been generated from
+  \ifdefined\URL\href{\URL{}/\MAIN{}.agda}{an Agda file}\else\texttt{\MAIN{}.agda}\fi{}
+  using the
+  \href{https://andreasabel.github.io/agda2lagda/}{\texttt{agda2lagda}}
+  translator and the \href{http://agda-lang.org}{\texttt{agda
+      --latex}} backend.
+}
+
+\begin{document}
+
+\maketitle
+
+\ifdefined\ABSTRACT
+\begin{abstract}
+\ABSTRACT
+\end{abstract}
+\fi
+
+\ifdefined\INTRO\INTRO\fi
+
+\input{latex/\MAIN}
+
+\ifdefined\CONCLUSION\CONCLUSION\fi
+
+\end{document}
+
+%%% Local Variables:
+%%% coding: utf-8
+%%% mode: latex
+%%% TeX-engine: xetex
+%%% End:

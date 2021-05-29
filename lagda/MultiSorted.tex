@@ -1,0 +1,125 @@
+\newcommand{\MAIN}{MultiSorted}
+%
+\newcommand{\TITLE}{%
+  Birkhoff's Completeness Theorem for Multi-Sorted Algebras
+  Formalized in Agda
+}
+\newcommand{\DATE}{28 May 2021}
+%
+\newcommand{\ABSTRACT}{
+  This document provides a formal proof of Birkhoff's completeness
+  theorem for multi-sorted algebras which states that any equational
+  entailment valid in all models is also provable in the equational
+  theory.
+  More precisely, if a certain equation is valid in all models that
+  validate a fixed set of equations, then this equation is derivable
+  from that set using the proof rules for a congruence.
+
+  The proof has been formalized in Agda version 2.6.2 with the
+  Agda Standard Library version 1.7 and this
+  document reproduces the commented Agda code.
+}
+%
+\newcommand{\INTRO}{
+
+  \section{Introduction}
+
+  Birkhoff's completeness theorem \citeyearpar{birkhoff:1935}
+  has been formalized in type theory before, even in Agda
+  \citep[Thm~.3.1]{guntherGadeaPagano:lsfa17}.
+  Our formalization makes the following decisions:
+
+  \begin{enumerate}
+
+  \item We use indexed containers
+    \citep{altenkirchGhaniHancockMcBrideMorris:jfp15}
+    aka Peterson-Synek (interaction) trees.
+    Given a set $S$ of sort symbols, a signature over $S$ is an
+    indexed endo-container, which has three components:
+    \begin{enumerate}
+
+    \item Per sort $s : S$, a set $O_s$ of operator symbols.
+      (In the container terminology, these are called
+      \emph{shapes} for index $s$, and in the interaction tree terminology,
+      \emph{commands} for state $s$.)
+
+    \item Per operator $o : O_s$, a set $A_o$, the arity of operator
+      $o$.  The arity is the index set for the arguments of the
+      operator, which are then given by a function over $A_o$.
+      (In the other terminologies, these are the \emph{positions} or
+      \emph{responses}, resp.)
+
+    \item Per argument index $i : A_o$, a sort $s_i : S$ which
+      denotes the sort of the $i$th argument of operator $o$.
+      (In the interaction tree terminology, this is the \emph{next} state.)
+
+    \end{enumerate}
+
+    Closed terms of a multi-sorted algebra
+    (aka first-order terms) are then
+    concrete interaction trees, i.e., elements of the indexed $W$-type
+    pertaining to the container.
+
+    Note that all the ``set''s we mentioned above come with a size,
+    see next point.
+
+  \item Universe-polymorphic:
+    As we are working in a predicative and constructive
+    meta-theory, we have to be aware of the size
+    (i.e., inaccessible cardinality) of the sets.
+    Our formalization is universe-polymorphic to ensure good
+    generality, resting on the universe-polymorphic
+    Agda Standard Library.
+
+    In particular, there is no such thing as ``all models''; rather we
+    can only quantify over models of a certain maximum size.
+    The completeness theorem consequently does not require validity of
+    an entailment in all models, but only in all models of a certain
+    size, which is given by the size of the generic model, i.e., the
+    term model.  The size of the term model in turn is determined by
+    the size of the signature of the multi-sorted algebra.
+
+  \item Open terms (with free variables) are obtained as the
+    \emph{free monad} over the container.  Concretely, we make a new
+    container that has additional nullary operator symbols, which
+    stand for the variables.
+    Terms are intrinsically typed, i.e., the set of terms is actually
+    a family of sets indexed by a sort and a context of sorted
+    variables in scope.
+
+  \item No lists:
+    We have no finiteness restrictions whatsover, neither the number
+    of operators need to be finite, nor the number of arguments of an
+    operator, nor the set of variables that are in scope of a term.
+    (Note however, since terms are finite trees, they can actually
+    mention only a finite number of variables from the possibly
+    infinite supply.)
+
+  \end{enumerate}
+}
+%
+\newcommand{\CONCLUSION}{%
+  Q.E.D.
+
+  \section{Related work}
+
+  \cite{guntherGadeaPagano:lsfa17} further formalize signature
+  morphisms.  These would be, in our setting, morphisms of indexed
+  containers, described by
+  \cite{altenkirchGhaniHancockMcBrideMorris:jfp15}, albeit in a
+  slightly different semantics, slice categories.
+
+
+  \paragraph*{Acknowledgments.}
+  \GENERATED
+%
+\bibliographystyle{abbrvnat}
+\bibliography{auto-MultiSorted}
+}
+
+\input{template}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:

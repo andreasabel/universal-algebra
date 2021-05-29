@@ -1,1 +1,12 @@
-/_build/
+*.aux
+*.blg
+*.lagda.tex
+*.log
+*.out
+*.pdf
+*.ptb
+*_aux
+_build
+/lagda/all.bib
+/lagda/latex/
+/lagda/medium.bib

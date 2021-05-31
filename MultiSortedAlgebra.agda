@@ -22,6 +22,7 @@ open import Function.Bundles                       using (Func)
 
 open import Relation.Binary                        using (Setoid; IsEquivalence)
 open import Relation.Binary.PropositionalEquality  using (_≡_; refl)
+open import Relation.Unary                         using (Pred)
 
 import Relation.Binary.Reasoning.Setoid as SetoidReasoning
 
@@ -86,9 +87,16 @@ variable
 -- Closed terms (initial model) are given by the W type for a container,
 -- renamed to μ here (for least fixed-point).
 
--- We assume a fixed signature (Sort, Ops).
+-- It is convenient to name the concept of signature, i.e. (Sort, Ops)
+record Signature (ℓˢ ℓᵒ ℓᵃ : Level) : Set (suc (ℓˢ ⊔ ℓᵒ ⊔ ℓᵃ)) where
+  field
+    Sort : Set ℓˢ
+    Ops : Container Sort Sort ℓᵒ ℓᵃ
 
-module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
+-- We assume a fixed signature.
+
+module _ (Sig : Signature ℓˢ ℓᵒ ℓᵃ) where
+  open Signature Sig
   open Container Ops renaming
     ( Command   to  Op
     ; Response  to  Arity
@@ -106,6 +114,9 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
 
   -- A model is given by an interpretation (Den $s$) for each sort $s$
   -- plus an interpretation (den $o$) for each operator $o$.
+  -- A model is also frequently known as an \emph{Algebra} for a
+  -- signature; but as that terminology is too overloaded, it is
+  -- avoided here.
 
   record SetModel ℓᵐ : Set (ℓˢ ⊔ ℓᵒ ⊔ ℓᵃ ⊔ suc ℓᵐ) where
     field
@@ -131,6 +142,7 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
   -- albeit with the restriction that the operator and variable sets
   -- have the same size.
 
+  Cxt : Set (ℓˢ ⊔ suc ℓᵒ)
   Cxt = Sort → Set ℓᵒ
 
   variable
@@ -147,6 +159,7 @@ module _ (Sort : Set ℓˢ) (Ops : Container Sort Sort ℓᵒ ℓᵃ) where
 
     -- Terms with variables are then given by the W-type (named μ) for the extended container.
 
+    Tm : Pred Sort _
     Tm = μ Ops⁺
 
     -- We define nice constructors for variables and operator application

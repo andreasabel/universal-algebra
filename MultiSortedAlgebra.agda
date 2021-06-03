@@ -7,11 +7,13 @@
 
 -- We import library content for indexed containers, standard types, and setoids.
 
+{-# OPTIONS --guardedness #-}  -- transitional, for Data.Container.Indexed.FreeMonad
+
 open import Level
 
-open import Data.Container.Indexed                 using (Container; ⟦_⟧; μ; _◃_/_)
+open import Data.Container.Indexed.Core            using (Container; ⟦_⟧; _◃_/_)
 open import Data.Container.Indexed.FreeMonad       using (_⋆C_)
-open import Data.W.Indexed                         using (sup)
+open import Data.W.Indexed                         using (W; sup)
 
 open import Data.Product                           using (Σ; _×_; _,_; Σ-syntax); open Σ
 open import Data.Sum                               using (_⊎_; inj₁; inj₂; [_,_])
@@ -157,10 +159,10 @@ module _ (Sig : Signature ℓˢ ℓᵒ ℓᵃ) where
     Ops⁺ : Container Sort Sort ℓᵒ ℓᵃ
     Ops⁺ = Ops ⋆C Var
 
-    -- Terms with variables are then given by the W-type (named μ) for the extended container.
+    -- Terms with variables are then given by the W-type for the extended container.
 
     Tm : Pred Sort _
-    Tm = μ Ops⁺
+    Tm = W Ops⁺
 
     -- We define nice constructors for variables and operator application
     -- via pattern synonyms.

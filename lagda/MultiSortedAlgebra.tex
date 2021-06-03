@@ -4,7 +4,7 @@
   Birkhoff's Completeness Theorem for Multi-Sorted Algebras
   Formalized in Agda
 }
-\newcommand{\DATE}{28 May 2021}
+\newcommand{\DATE}{3 June 2021}
 %
 \newcommand{\ABSTRACT}{
   This document provides a formal proof of Birkhoff's completeness
@@ -109,8 +109,36 @@
   \cite{altenkirchGhaniHancockMcBrideMorris:jfp15}, albeit in a
   slightly different semantics, slice categories.
 
+  DeMeo's rather comprehensive development \citeyearpar{deMeo:ualib-arxiv}
+  formalizes single-sorted algebras up to the
+  Birkhoff's HSP theorem in Agda.  DeMeo's signatures are containers;
+  even though he does not make this connection explicit, it inspired
+  the use of indexed containers in the present development.
+  DeMeo's formalization is basis for
+  \url{https://github.com/ualib/agda-algebras}.
+
+  \cite{amatoMaggesiBrogi:univ-alg-arxiv-2021} formalize multi-sorted
+  algebras with finitary operators in UniMath.  Limiting to
+  finitary operators is due to the
+  restrictions of the UniMath type theory, which does not have W-types
+  nor user-defined inductive types.  These restrictions also prompt
+  the authors to code terms as lists of stack machine instructions
+  rather than trees.
+
+  \cite{lyngeSpitters:types19} formalize multi-sorted algebras in
+  HoTT, also restricting to finitary operators.  Using HoTT they can
+  define quotients as types, obsoleting setoids.
+  They prove three
+  isomorphism theorems concerning sub- and quotient algebras.  A
+  universal algebra or varieties are not formalized.
 
   \paragraph*{Acknowledgments.}
+  Standing on the shoulders of giants: the present concise formalization is
+  enabled by the well-organized standard library of Agda maintained by
+  Matthew Daggitt and Guillaume Allais.
+  Thanks to Jacques Carette for discussions and constructive review of
+  the Agda code.
+
   \GENERATED
 %
 \bibliographystyle{abbrvnat}

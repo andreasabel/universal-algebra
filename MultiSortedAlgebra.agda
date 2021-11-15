@@ -7,8 +7,6 @@
 
 -- We import library content for indexed containers, standard types, and setoids.
 
-{-# OPTIONS --guardedness #-}  -- transitional, for Data.Container.Indexed.FreeMonad
-
 open import Level
 
 open import Data.Container.Indexed.Core            using (Container; ⟦_⟧; _◃_/_)
@@ -47,7 +45,7 @@ variable
 -- W-type given by C, and it contains closed first-order terms of the
 -- multi-sorted algebra C.
 
--- We need to interpreting indexed containers on Setoids.
+-- We need to interpret indexed containers on Setoids.
 -- This definition is missing from the standard library v1.7.
 -- It equips the sets (⟦ C ⟧ X s) with an equivalence relation
 -- induced by the one of the family $X$.

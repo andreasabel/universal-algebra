@@ -1,8 +1,5 @@
 -- To model dependently-sorted algebras, let us consider algebras indexed by algebras.
 
-
-{-# OPTIONS --guardedness #-}  -- transitional, for Data.Container.Indexed.FreeMonad
-
 open import Level
 
 open import Data.Container.Indexed.Core            using (Container; ⟦_⟧; _◃_/_)

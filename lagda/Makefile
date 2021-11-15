@@ -22,8 +22,7 @@ bibtool=bibtool -- 'preserve.key.case = ON' \
 #	  -- 'delete.field = { doi }' \
 
 catcfg=sed -e "s/%.*//g" <
-latex=latex
-pdflatex=xelatex
+latex=xelatex
 bibliography=medium.bib
 
 files=lipics-v2019.cls Makefile \
@@ -46,9 +45,11 @@ ship : $(destdir)/agda/MultiSortedAlgebra.pdf
 .PHONY: ship-%
 ship-% : $(destdir)/agda/%.pdf
 
-pack : main.zip
+.PHONY: pack
+pack : MultiSortedAlgebra.zip
 
-main.zip : main.pdf $(files) main.bbl auto-main.bib
+# pack sources for arXiv
+MultiSortedAlgebra.zip : MultiSortedAlgebra.tex template.tex latex/MultiSortedAlgebra.tex latex/agda.sty auto-MultiSortedAlgebra.bib  MultiSortedAlgebra.bbl
 	zip $@ $^
 
 %.lagda.tex : ../%.agda
@@ -63,7 +64,7 @@ latex/%.tex : %.lagda.tex
 # initially, run latex once to create an .aux file
 # mark .aux file as fresh by creating a stamp _aux
 MultiSortedAlgebra_aux : MultiSortedAlgebra.tex template.tex latex/MultiSortedAlgebra.tex
-	-$(pdflatex) $<;
+	-$(latex) $<;
 	touch $@;
 
 # main
@@ -75,7 +76,7 @@ MultiSortedAlgebra_aux : MultiSortedAlgebra.tex template.tex latex/MultiSortedAl
 # initially, run latex once to create an .aux file
 # mark .aux file as fresh by creating a stamp _aux
 main_aux : main.tex $(files)
-	-$(pdflatex) $<;
+	-$(latex) $<;
 	touch $@;
 
 # then, run bibtex
@@ -87,8 +88,8 @@ main.bbl : main_aux auto-main.bib
 # (otherwise we would not converge and make would never
 # return a "Nothing to do")
 main.pdf : main.bbl
-	-$(pdflatex) main.tex;
-	$(pdflatex) main.tex;
+	-$(latex) main.tex;
+	$(latex) main.tex;
 
 # auto-main.bib is only defined if bibtool is present and all.bib exists
 
@@ -108,7 +109,7 @@ endif
 # initially, run latex once to create an .aux file
 # mark .aux file as fresh by creating a stamp _aux
 main-long_aux : main-long.tex $(files)
-	$(pdflatex) main-long.tex;
+	$(latex) main-long.tex;
 	touch $@;
 
 # then, run bibtex
@@ -120,8 +121,8 @@ main-long.bbl : main-long_aux auto-main.bib
 # (otherwise we would not converge and make would never
 # return a "Nothing to do")
 main-long.pdf : main-long.bbl
-	$(pdflatex) main-long.tex;
-	$(pdflatex) main-long.tex;
+	$(latex) main-long.tex;
+	$(latex) main-long.tex;
 
 # auto-main-long.bib is only defined if bibtool is present and all.bib exists
 
@@ -147,8 +148,8 @@ endif
 # (otherwise we would not converge and make would never
 # return a "Nothing to do")
 %.pdf : %.bbl
-	-$(pdflatex) $*.tex;
-	$(pdflatex) $*.tex;
+	-$(latex) $*.tex;
+	$(latex) $*.tex;
 
 # auto-%.bib is only defined if bibtool is present and $(bibliography) exists
 ifneq ($(shell which bibtool),)
@@ -171,7 +172,7 @@ talk% : talk%.pdf
 	touch $@;
 
 talk%.pdf : talk%.tex
-	pdflatex $<;
+	latex $<;
 
 # %.tex : %.lhs
 # 	lhs2TeX --poly -i lhs2TeX.fmt $< > $@
@@ -182,7 +183,7 @@ talk%.pdf : talk%.tex
 	touch $@;
 
 # %.pdf : %.dvi
-# 	pdflatex $*.tex;
+# 	latex $*.tex;
 
 # %.ps  : %.dvi
 # 	dvips -o $@ $<;

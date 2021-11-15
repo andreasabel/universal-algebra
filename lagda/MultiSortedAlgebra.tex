@@ -1,5 +1,29 @@
 \newcommand{\MAIN}{MultiSortedAlgebra}
 %
+\newcommand{\SETUP}{%
+% The following tricks to fool arXiv's TeX-origin detection for PDFs
+% do not work for xelatex-generated PDFs.  (No change printed by pdfinfo.)
+% However this works:
+%   exiftool -all:all= -overwrite_original FILE.pdf
+% https://stackoverflow.com/questions/60738960/remove-pdf-metadata-removing-complete-pdf-metadata
+  \hypersetup{
+    pdfinfo={
+    pdfproducer={},
+    Title={},
+    Subject={},
+    Author={},
+    }
+  }
+  \pdfinfo{
+    /Title ()
+    /Creator ()
+    /Producer ()
+    /Author ()
+    /Subject ()
+    /Keywords ()
+  }
+}
+%
 \newcommand{\TITLE}{%
   Birkhoff's Completeness Theorem for Multi-Sorted Algebras
   Formalized in Agda
